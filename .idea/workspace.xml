@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="339823ea-f649-4408-a0d0-cae619ca4b22" name="Changes" comment="training part is done">
+    <list default="true" id="339823ea-f649-4408-a0d0-cae619ca4b22" name="Changes" comment="bf16">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
     </list>
@@ -148,7 +148,15 @@
       <option name="project" value="LOCAL" />
       <updated>1722883539790</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="bf16">
+      <option name="closed" value="true" />
+      <created>1722887228958</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1722887228958</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -174,6 +182,7 @@
     <MESSAGE value="dataloader is almost here" />
     <MESSAGE value="dataloader is fully here" />
     <MESSAGE value="training part is done" />
-    <option name="LAST_COMMIT_MESSAGE" value="training part is done" />
+    <MESSAGE value="bf16" />
+    <option name="LAST_COMMIT_MESSAGE" value="bf16" />
   </component>
 </project>

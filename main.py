@@ -1,9 +1,11 @@
+import os
+
 import dataloader
 import torch
 import torch.nn as nn
 from torch.cuda.amp import autocast, GradScaler
 from tqdm import tqdm
-
+from vector_quantize_pytorch import VectorQuantize
 
 # https://github.com/serkansulun/pytorch-pixelshuffle1d/blob/master/pixelshuffle1d.py
 class PixelShuffle1D(torch.nn.Module):
@@ -76,7 +78,7 @@ class ResBlock(nn.Module):
 
 
 class MusicVQGan(nn.Module):
-    def __init__(self, multiplier):
+    def __init__(self, multiplier, bottleneck_size = 16):
         super(MusicVQGan, self).__init__()
 
         self.pixel_unshuffle = PixelUnshuffle1D(downscale_factor=4)
@@ -93,9 +95,19 @@ class MusicVQGan(nn.Module):
 
         encoder_layers.append(nn.Conv1d(channels, channels, kernel_size=3, stride=1, padding=1))
         self.encoder = nn.Sequential(*encoder_layers)
-        self.bottleneck_encoder = nn.Sequential(nn.Conv1d(channels, 16, kernel_size=3, stride=1, padding=1),
-                                                nn.LeakyReLU())
-        self.bottleneck_decoder = nn.Sequential(nn.Conv1d(16, channels, kernel_size=3, stride=1, padding=1),
+
+        self.bottleneck_encoder = nn.Sequential(nn.Conv1d(channels, bottleneck_size, kernel_size=3, stride=1, padding=1),
+                                                nn.LeakyReLU(),
+                                                PixelUnshuffle1D(downscale_factor=5))
+
+        self.vq = VectorQuantize(
+            dim=bottleneck_size*5,
+            codebook_size=256,
+            use_cosine_sim=True
+        )
+
+        self.bottleneck_decoder = nn.Sequential(PixelShuffle1D(upscale_factor=5),
+                                                nn.Conv1d(bottleneck_size, channels, kernel_size=3, stride=1, padding=1),
                                                 nn.LeakyReLU())
 
         decoder_channels = [1, 2, 4, 8, 16, 32]
@@ -117,10 +129,13 @@ class MusicVQGan(nn.Module):
         x = self.pixel_unshuffle(x)
         x = self.encoder(x)
         x = self.bottleneck_encoder(x)
+        x = x.permute(0, 2, 1)
+        x, indices, commit_loss = self.vq(x)
+        x = x.permute(0, 2, 1)
         x = self.bottleneck_decoder(x)
         x = self.decoder(x)
         x = self.pixel_shuffle(x)
-        return x
+        return x, commit_loss
 
 
 def print_model_parameters(model):
@@ -142,6 +157,9 @@ optimizer = torch.optim.AdamW(model.parameters(), lr=0.001)
 criterion = nn.MSELoss()
 scaler = GradScaler()
 
+checkpoints_dir = './checkpoints'
+os.makedirs(checkpoints_dir, exist_ok=True)
+
 for epoch in range(128):
     with tqdm(dataloader_, desc=f'Epoch {epoch + 1}') as pbar:
         for i, data in enumerate(pbar):
@@ -150,8 +168,8 @@ for epoch in range(128):
             optimizer.zero_grad()
 
             with autocast(dtype=torch.bfloat16):
-                h = model(data_cuda)
-                loss_value = criterion(data_cuda, h)
+                h, vq_loss = model(data_cuda)
+                loss_value = criterion(data_cuda, h) + vq_loss
 
             scaler.scale(loss_value).backward()
             scaler.step(optimizer)
@@ -162,3 +180,7 @@ for epoch in range(128):
             steps += 1
 
             pbar.set_postfix(steps=steps, loss=f'{loss_value.item():.02f}')
+    if epoch % 5 == 0:
+        checkpoint_path = os.path.join(checkpoints_dir, f'model_epoch_{epoch + 1}.pt')
+        torch.save(model.state_dict(), checkpoint_path)
+        print(f'Model saved to {checkpoint_path}')
