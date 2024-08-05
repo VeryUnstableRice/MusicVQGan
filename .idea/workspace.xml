@@ -4,9 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="339823ea-f649-4408-a0d0-cae619ca4b22" name="Changes" comment="auto encoder is here">
-      <change afterPath="$PROJECT_DIR$/dataloader.py" afterDir="false" />
+    <list default="true" id="339823ea-f649-4408-a0d0-cae619ca4b22" name="Changes" comment="dataloader is fully here">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dataloader.py" beforeDir="false" afterPath="$PROJECT_DIR$/dataloader.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -124,7 +125,23 @@
       <option name="project" value="LOCAL" />
       <updated>1722880793721</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="dataloader is almost here">
+      <option name="closed" value="true" />
+      <created>1722881563584</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1722881563584</updated>
+    </task>
+    <task id="LOCAL-00006" summary="dataloader is fully here">
+      <option name="closed" value="true" />
+      <created>1722882323438</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1722882323438</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -147,6 +164,8 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="intial commit" />
     <MESSAGE value="auto encoder is here" />
-    <option name="LAST_COMMIT_MESSAGE" value="auto encoder is here" />
+    <MESSAGE value="dataloader is almost here" />
+    <MESSAGE value="dataloader is fully here" />
+    <option name="LAST_COMMIT_MESSAGE" value="dataloader is fully here" />
   </component>
 </project>

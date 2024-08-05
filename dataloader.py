@@ -6,7 +6,7 @@ import os
 
 
 class SongDataset(Dataset):
-    def __init__(self, training_dir, segment_lenght=48000):
+    def __init__(self, training_dir, segment_lenght=480000):
         super().__init__()
         self.filenames = [f for f in os.listdir(training_dir) if f.endswith('.mp3')]
         self.training_dir = training_dir

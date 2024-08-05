@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import dataloader
 
 #https://github.com/serkansulun/pytorch-pixelshuffle1d/blob/master/pixelshuffle1d.py
 class PixelShuffle1D(torch.nn.Module):
@@ -72,6 +73,8 @@ class MusicVQGan(nn.Module):
     def __init__(self, multiplier):
         super(MusicVQGan, self).__init__()
 
+        self.pixel_unshuffle = PixelUnshuffle1D(downscale_factor=4)
+
         encoder_channels = [32, 16, 8, 4, 2, 1]
         encoder_layers = []
         channels = 4
@@ -87,8 +90,6 @@ class MusicVQGan(nn.Module):
         self.bottleneck_decoder = nn.Sequential(nn.Conv1d(16, channels, kernel_size=3, stride=1, padding=1),
                                                 nn.LeakyReLU())
 
-        # Adding PixelUnshuffle1D before encoder
-        self.pixel_unshuffle = PixelUnshuffle1D(downscale_factor=4)
 
         decoder_channels = [1, 2, 4, 8, 16, 32]
         decoder_layers = []
@@ -101,7 +102,6 @@ class MusicVQGan(nn.Module):
         decoder_layers.append(nn.InstanceNorm1d(1))
         self.decoder = nn.Sequential(*decoder_layers)
 
-        # Adding PixelShuffle1D after decoder
         self.pixel_shuffle = PixelShuffle1D(upscale_factor=4)
 
     def forward(self, x):
@@ -124,13 +124,25 @@ def print_model_parameters(model):
 model = MusicVQGan(32).cuda()
 print_model_parameters(model)
 
+root_dir = './training_data'
+dataset = dataloader.SongDataset(root_dir)
+dataloader_ = dataloader.DataLoader(dataset, batch_size=1, shuffle=True)
+
+
+steps = 0
 optimizer = torch.optim.AdamW(model.parameters(), lr=0.01)
 loss = nn.L1Loss()
-for _ in range(64*256):
-    x = torch.randn(1, 1, 480000).cuda()
-    h = model(x)
-    optimizer.zero_grad()
-    loss_value = loss(x, h)
-    loss_value.backward()
-    optimizer.step()
-    print(f'loss: {loss_value:.02f}')
+for _ in range(128):
+    for i, data in enumerate(dataloader_):
+        data_cuda = data.cuda()
+        h = model(data_cuda)
+
+        optimizer.zero_grad()
+        loss_value = loss(data_cuda, h)
+        loss_value.backward()
+        optimizer.step()
+
+        if steps % 50 == 0:
+            dataloader.save_audio(h[0].cpu(), './output', f'kebab_{steps}.mp3')
+        steps = steps + 1
+        print(f'loss: {loss_value:.02f}')
