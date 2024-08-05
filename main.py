@@ -1,14 +1,18 @@
+import dataloader
 import torch
 import torch.nn as nn
-import dataloader
+from torch.cuda.amp import autocast, GradScaler
+from tqdm import tqdm
 
-#https://github.com/serkansulun/pytorch-pixelshuffle1d/blob/master/pixelshuffle1d.py
+
+# https://github.com/serkansulun/pytorch-pixelshuffle1d/blob/master/pixelshuffle1d.py
 class PixelShuffle1D(torch.nn.Module):
     """
     1D pixel shuffler. https://arxiv.org/pdf/1609.05158.pdf
     Upscales sample length, downscales channel length
     "short" is input, "long" is output
     """
+
     def __init__(self, upscale_factor):
         super(PixelShuffle1D, self).__init__()
         self.upscale_factor = upscale_factor
@@ -28,13 +32,14 @@ class PixelShuffle1D(torch.nn.Module):
         return x
 
 
-#https://github.com/serkansulun/pytorch-pixelshuffle1d/blob/master/pixelshuffle1d.py
+# https://github.com/serkansulun/pytorch-pixelshuffle1d/blob/master/pixelshuffle1d.py
 class PixelUnshuffle1D(torch.nn.Module):
     """
     Inverse of 1D pixel shuffler
     Upscales channel length, downscales sample length
     "long" is input, "short" is output
     """
+
     def __init__(self, downscale_factor):
         super(PixelUnshuffle1D, self).__init__()
         self.downscale_factor = downscale_factor
@@ -51,6 +56,7 @@ class PixelUnshuffle1D(torch.nn.Module):
         x = x.permute(0, 3, 1, 2).contiguous()
         x = x.view([batch_size, short_channel_len, short_width])
         return x
+
 
 class ResBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -76,12 +82,14 @@ class MusicVQGan(nn.Module):
         self.pixel_unshuffle = PixelUnshuffle1D(downscale_factor=4)
 
         encoder_channels = [32, 16, 8, 4, 2, 1]
+        resnetnum_encoder = 2
         encoder_layers = []
         channels = 4
         for encoder in encoder_channels:
-            encoder_layers.append(ResBlock(channels, encoder * multiplier))
+            for _ in range(resnetnum_encoder):
+                encoder_layers.append(ResBlock(channels, encoder * multiplier))
+                channels = encoder * multiplier
             encoder_layers.append(nn.AvgPool1d(kernel_size=2, stride=2))
-            channels = encoder * multiplier
 
         encoder_layers.append(nn.Conv1d(channels, channels, kernel_size=3, stride=1, padding=1))
         self.encoder = nn.Sequential(*encoder_layers)
@@ -90,13 +98,14 @@ class MusicVQGan(nn.Module):
         self.bottleneck_decoder = nn.Sequential(nn.Conv1d(16, channels, kernel_size=3, stride=1, padding=1),
                                                 nn.LeakyReLU())
 
-
         decoder_channels = [1, 2, 4, 8, 16, 32]
         decoder_layers = []
+        resnetnum_decoder = 3
         for decoder in decoder_channels:
-            decoder_layers.append(ResBlock(channels, decoder * multiplier))
+            for _ in range(resnetnum_decoder):
+                decoder_layers.append(ResBlock(channels, decoder * multiplier))
+                channels = decoder * multiplier
             decoder_layers.append(nn.Upsample(scale_factor=2, mode='nearest'))
-            channels = decoder * multiplier
         decoder_layers.append(nn.Conv1d(channels, 4, kernel_size=3, stride=1, padding=1))
         decoder_layers.append(nn.LeakyReLU())
         decoder_layers.append(nn.InstanceNorm1d(1))
@@ -128,21 +137,28 @@ root_dir = './training_data'
 dataset = dataloader.SongDataset(root_dir)
 dataloader_ = dataloader.DataLoader(dataset, batch_size=1, shuffle=True)
 
-
 steps = 0
-optimizer = torch.optim.AdamW(model.parameters(), lr=0.01)
-loss = nn.L1Loss()
-for _ in range(128):
-    for i, data in enumerate(dataloader_):
-        data_cuda = data.cuda()
-        h = model(data_cuda)
+optimizer = torch.optim.AdamW(model.parameters(), lr=0.001)
+criterion = nn.MSELoss()
+scaler = GradScaler()
 
-        optimizer.zero_grad()
-        loss_value = loss(data_cuda, h)
-        loss_value.backward()
-        optimizer.step()
+for epoch in range(128):
+    with tqdm(dataloader_, desc=f'Epoch {epoch + 1}') as pbar:
+        for i, data in enumerate(pbar):
+            data_cuda = data.cuda()
 
-        if steps % 50 == 0:
-            dataloader.save_audio(h[0].cpu(), './output', f'kebab_{steps}.mp3')
-        steps = steps + 1
-        print(f'loss: {loss_value:.02f}')
+            optimizer.zero_grad()
+
+            with autocast(dtype=torch.bfloat16):
+                h = model(data_cuda)
+                loss_value = criterion(data_cuda, h)
+
+            scaler.scale(loss_value).backward()
+            scaler.step(optimizer)
+            scaler.update()
+
+            if steps % 50 == 0:
+                dataloader.save_audio(h[0].cpu().float(), './output', f'kebab_{steps}.mp3')
+            steps += 1
+
+            pbar.set_postfix(steps=steps, loss=f'{loss_value.item():.02f}')
